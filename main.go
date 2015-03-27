@@ -3,7 +3,8 @@ package main
 
 import (
 	"fmt"
-//	"os"
+	"os"
+	"io"
 	"net/http"
 	"path/filepath"
 	"golang.org/x/net/html"
@@ -57,6 +58,38 @@ func collect(url string) (downloads []*Download, err error) {
 	return downloads, nil
 }
 
+func get(d *Download) (err error) {
+	resp, err := http.Get(d.URL)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	out, err := os.OpenFile(d.Filename, os.O_WRONLY | os.O_CREATE | os.O_EXCL, 0644)
+	if err != nil {
+		return err
+	}
+	defer out.Close()
+
+	_, err = io.Copy(out, resp.Body)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func main() {
-	fmt.Println(collect(URL))
+	downloads, err := collect(URL)
+	if err != nil {
+		panic(err)
+	}
+	for _, d := range downloads {
+		fmt.Println(d.Filename)
+		err = get(d)
+		if err != nil {
+			panic(err)
+		}
+	}
+	fmt.Printf("Done; %d files downloaded.\n", len(downloads))
 }
